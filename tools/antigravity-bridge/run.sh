@@ -11,8 +11,12 @@ find_node_bin() {
     fi
   fi
 
+  if [[ -n "${AG_APP_BIN:-}" && -x "${AG_APP_BIN}" ]]; then
+    echo "$AG_APP_BIN"
+    return 0
+  fi
+
   local candidates=(
-    "/Volumes/Mydisk/Applications/AppPorts.noindex/Antigravity.app/Contents/MacOS/Antigravity"
     "/Applications/Antigravity.app/Contents/MacOS/Antigravity"
     "$HOME/Applications/Antigravity.app/Contents/MacOS/Antigravity"
   )
@@ -22,6 +26,24 @@ find_node_bin() {
       return 0
     fi
   done
+
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    local running
+    running="$(ps -ax -o comm= 2>/dev/null | grep -m1 '/Antigravity\.app/Contents/MacOS/Antigravity$' || true)"
+    if [[ -n "$running" && -x "$running" ]]; then
+      echo "$running"
+      return 0
+    fi
+    if command -v mdfind >/dev/null 2>&1; then
+      local app
+      while IFS= read -r app; do
+        if [[ -x "$app/Contents/MacOS/Antigravity" ]]; then
+          echo "$app/Contents/MacOS/Antigravity"
+          return 0
+        fi
+      done < <(mdfind 'kMDItemFSName == "Antigravity.app"' 2>/dev/null || true)
+    fi
+  fi
   return 1
 }
 
