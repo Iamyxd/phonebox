@@ -56,5 +56,7 @@ fi
 if [[ "$RUNTIME_BIN" == "node" ]]; then
   exec node "$SCRIPT_DIR/push-antigravity.js" "$@"
 else
-  ELECTRON_RUN_AS_NODE=1 exec "$RUNTIME_BIN" "$SCRIPT_DIR/push-antigravity.js" "$@"
+  # Pass -e so process scanners (e.g. start-safe-plugins.sh is_agy_running)
+  # distinguish this headless ELECTRON_RUN_AS_NODE bridge from the GUI app.
+  ELECTRON_RUN_AS_NODE=1 exec "$RUNTIME_BIN" -e 'require(process.argv[1])' "$SCRIPT_DIR/push-antigravity.js" "$@"
 fi
