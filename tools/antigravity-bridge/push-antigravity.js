@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 
 const AGENT_URL = process.env.PHONEBOX_URL || 'http://127.0.0.1:8765';
-const PUSH_TTL_SEC = Number(process.env.PHONEBOX_PUSH_TTL || 600);
+const PUSH_TTL_SEC = Number(process.env.PHONEBOX_PUSH_TTL || 1800);
 const INTERVAL_SEC = Number(process.env.PHONEBOX_PUSH_INTERVAL || 60);
 
 function getDevToolsPort() {
@@ -378,6 +378,7 @@ async function setupPhoneBoxPage() {
   upsert('ai', 'AI quotas', '✳️', aiWidgets);
   upsert('work', 'Sessions', '🤖', workWidgets);
   cfg.pages = pages;
+  cfg.display = { ...(cfg.display || {}), idleReturnSec: 1800 };
 
   const headers = cfgVer ? { 'X-Config-Version': String(cfgVer) } : {};
   const saveRes = await httpJson(`${AGENT_URL}/api/settings`, 'PUT', cfg, headers);
