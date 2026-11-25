@@ -29,11 +29,12 @@ find_node_bin() {
 
   if [[ "$(uname -s)" == "Darwin" ]]; then
     local running
-    running="$(ps -ax -o comm= 2>/dev/null | grep -m1 '/Antigravity\.app/Contents/MacOS/Antigravity$' || true)"
-    if [[ -n "$running" && -x "$running" ]]; then
-      echo "$running"
-      return 0
-    fi
+    while IFS= read -r running; do
+      if [[ -n "$running" && -x "$running" ]]; then
+        echo "$running"
+        return 0
+      fi
+    done < <(ps -ax -o comm= 2>/dev/null | grep '/Antigravity\.app/Contents/MacOS/Antigravity$' || true)
     if command -v mdfind >/dev/null 2>&1; then
       local app
       while IFS= read -r app; do

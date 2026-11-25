@@ -10,7 +10,14 @@ const AGENT_URL = process.env.PHONEBOX_URL || 'http://127.0.0.1:8765';
 const PUSH_TTL_SEC = Number(process.env.PHONEBOX_PUSH_TTL || 1800);
 const INTERVAL_SEC = Number(process.env.PHONEBOX_PUSH_INTERVAL || 60);
 
-function getDevToolsPort() {
+function getDevToolsPortCandidates() {
+  const ports = [];
+  const addPort = (val) => {
+    const port = Number(val);
+    if (Number.isFinite(port) && port > 0 && port < 65536 && !ports.includes(port)) {
+      ports.push(port);
+    }
+  };
   const override = process.env.AG_DEVTOOLS_PORT_FILE;
   let portFile = override;
   if (!portFile) {
@@ -20,10 +27,16 @@ function getDevToolsPort() {
       : (process.env.XDG_CONFIG_HOME || path.join(home, '.config')));
     portFile = path.join(base, 'Antigravity', 'DevToolsActivePort');
   }
-  if (!fs.existsSync(portFile)) return null;
-  const raw = fs.readFileSync(portFile, 'utf8').split(/\r?\n/)[0].trim();
-  const port = Number(raw);
-  return Number.isFinite(port) && port > 0 && port < 65536 ? port : null;
+  try {
+    if (fs.existsSync(portFile)) {
+      const raw = fs.readFileSync(portFile, 'utf8').split(/\r?\n/)[0].trim();
+      addPort(raw);
+    }
+  } catch {
+    // Fall back to AG_CDP_PORT / default 9222 when DevToolsActivePort is unreadable (e.g. macOS EPERM).
+  }
+  addPort(process.env.AG_CDP_PORT || 9222);
+  return ports;
 }
 
 function httpJson(urlStr, method = 'GET', payload = null, headers = {}) {
@@ -119,10 +132,18 @@ async function cdpEval(wsUrl, expression) {
  * Fetch Antigravity quota and session snapshot through the running antigravity-usage-suite telemetry hub.
  */
 async function readAntigravityTelemetry() {
-  const port = getDevToolsPort();
-  if (!port) throw new Error('Antigravity DevToolsActivePort not found');
-  const pages = await queryCdpPages(port);
-  if (!pages.length) throw new Error('No Antigravity renderer window found');
+  const ports = getDevToolsPortCandidates();
+  let pages = [];
+  let cdpErr = null;
+  for (const port of ports) {
+    try {
+      pages = await queryCdpPages(port);
+      if (pages.length) break;
+    } catch (err) {
+      cdpErr = err;
+    }
+  }
+  if (!pages.length) throw cdpErr || new Error('No Antigravity renderer window found');
 
   let lastErr = null;
   for (const page of pages) {
